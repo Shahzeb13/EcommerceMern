@@ -1,5 +1,5 @@
-import { decode } from "jsonwebtoken";
-import ErrorResponse from "../config/errorResponse";
+import   jwt  from "jsonwebtoken";
+import ErrorResponse from "../config/errorResponse.js";
 
 export const protect = (req , res , next) =>{
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv'
 import userRouter from './Routes/authRoutes.js';
+import adminRouter from './Routes/adminRoutes.js';
 import { ConnectToDatabase } from './config/dbConnection.js';
 import errorHandler from './middleware/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
@@ -17,8 +18,8 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 ConnectToDatabase();
 
-app.use("/api/auth" , userRouter)
-
+app.use("/api/auth" , userRouter);
+app.use("/api/admin" , adminRouter);
 app.get("/" , (req , res) => {
     res.send("Hello World!")
 })

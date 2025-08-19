@@ -7,12 +7,14 @@ const userSchema = new mongoose.Schema({
     email : { type: String , required :true , unique: true  , lowercase:true},
     password : {type : String  , required: true},
     role: {type: String , enum: ["admin" , "customer" , "seller"] , default: "customer" , required: true , lowercase: true} ,
+    isAdmin: {type : Boolean , default: false},
+    isVerified : {type: Boolean , default : false},
     otp: {
         code : {type: Number},
         receivedAt: {type: Date},
         expiresAt: {type: Date}
     }
-,
+,   
     passwordOtp: {
         code: {type: Number},
         receivedAt: {type: Date},

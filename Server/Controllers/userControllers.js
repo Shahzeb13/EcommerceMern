@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import ErrorResponse from "../config/errorResponse.js"
 import { sendEmail } from '../config/mockEmail.js'
+import {generateOTP} from "../utils/generateOtp.js"
+import { jwtTokenGenerater } from '../utils/jwtTokenGenerater.js'
 //----------------------------------User Registration-----------------------------------
 
 
@@ -14,6 +16,8 @@ const cookieOptions = {
     path: '/',
     maxAge: 3600000 // 1 hour
 };
+
+
 
 
 export const handleUserRegistration = async (req, res, next) => {
@@ -48,8 +52,8 @@ export const handleUserRegistration = async (req, res, next) => {
             role: user.role,
         };
 
-        const token = jwt.sign(payload, process.env.jwtSecret, { expiresIn: "1h" });
-
+        // const token = jwt.sign(payload, process.env.jwtSecret, { expiresIn: "1h" });
+        const {token} = jwtTokenGenerater(payload);
 
 
 
@@ -69,9 +73,9 @@ export const handleUserRegistration = async (req, res, next) => {
 //--------------------------User Signup----------------------------------
 export const handleUserSignUp = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { email, password} = req.body;
 
-        if (!email || !password) {
+        if (!email || !password ) {
             return next(new ErrorResponse("All Fields are Required!", 400));
         }
 
@@ -79,6 +83,13 @@ export const handleUserSignUp = async (req, res, next) => {
         if (!user) {
             return next(new ErrorResponse("Account Not Found.", 404));
         }
+ 
+        //role check
+
+        // if(!user.isAdmin){
+        //     return next("User is not authorized as Admin" , 401);
+        // }
+
 
         const isPasswordMatched = await bcrypt.compare(password, user.password);
         if (!isPasswordMatched) {
@@ -91,7 +102,7 @@ export const handleUserSignUp = async (req, res, next) => {
             role: user.role
         }
 
-        const token = jwt.sign(payload, process.env.jwtSecret, { expiresIn: "1h" });
+        const {token} = jwtTokenGenerater(payload)
 
         return res.cookie("token", token,cookieOptions).
             status(200).
@@ -104,7 +115,7 @@ export const handleUserSignUp = async (req, res, next) => {
 
 //-------------------------------logout Controller---------------------------------
 
-export const logout = (req , res) => {
+export const logout = (req , res , next) => {
 
     try{
         res.clearCookie('token' ,cookieOptions)
@@ -113,7 +124,98 @@ export const logout = (req , res) => {
     }
     catch(err)
     {
-        return res.status(500).json({success :false , message :err.message})
+       next(err)
     }
+    
+}
+
+
+//---------------------------------sendOtp ---------------------------------
+export  const sendOtp = async (req , res ,next) => {
+    try{
+        const { email} = req.user;
+
+        if(!email){
+            return next(new ErrorResponse("Email not Found! Enter correct Creditionals" , 401))
+        }
+
+        const user =await userModel.findOne({email});
+        if(!user){
+            return next(new ErrorResponse("User Not found"))
+        }
+
+        const {otp , expiresAt , receivedAt} = generateOTP(1);
+        
+
+        user.otp.code = otp;
+        user.otp.expiresAt = expiresAt;
+        user.otp.receivedAt = receivedAt;
+
+        await user.save();
+
+        
+        console.log(`===========OTP===============`);
+        console.log(`OTP : ${otp}`);
+        console.log(`Expires In :${expiresAt}`);
+        
+
+        return res.status(201).json(
+           {
+
+            success: true,
+            message: "Otp Sent Successfully. Check your Gmail",
+            expiresIn : 1
+           }
+
+        )
+
+    }
+    catch(err){
+
+     next(err)
+    }
+}
+
+
+export const verifyOtp =async (req , res ,next) => {
+
+   try {
+    const {otp} = req.body;
+    const {email}  = req.user;
+
+    if(!otp){
+        return next(new ErrorResponse("Otp Not Found" , 404));
+    }
+
+
+    const user =await userModel.findOne({email});
+    if(!user){
+        return next(new ErrorResponse("User Not Found!" , 401));
+    }
+
+    if(user.otp.code != otp){
+        return next(new ErrorResponse("Invalid Otp" , 400))
+    }
+
+
+    if(Date.now() >  user.otp.expiresAt.getTime()){
+        return next(new ErrorResponse("Otp has been expired. Try Again."));
+    }
+
+
+    user.isVerified = true;
+
+    await user.save();
+
+
+    return res.status(200).json({
+        success: true,
+        message: "User Has been verified Successfully."
+    })
+   }
+
+   catch(err){
+        next(err)
+   }
     
 }
